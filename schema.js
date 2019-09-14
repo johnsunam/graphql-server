@@ -3,7 +3,9 @@ const {
   GraphQLString,
   GraphQLSchema,
   GraphQLInt,
-  GraphQLList
+  GraphQLList,
+  GraphQLNonNull,
+  GraphQLInputObjectType,
  } = require('graphql');
 
  const employees = [
@@ -33,6 +35,14 @@ const EmployeeType = new GraphQLObjectType({
   })
 });
 
+const EmployeeInputTypes = new GraphQLInputObjectType({
+  name: 'EmployeeInput',
+  fields: {
+    name: { type: new GraphQLNonNull(GraphQLString) },
+    email: { type: new GraphQLNonNull(GraphQLString) },
+  }
+});
+
 const RootQuery = new GraphQLObjectType({
   name: 'RootQueryType',
   fields: {
@@ -52,11 +62,56 @@ const RootQuery = new GraphQLObjectType({
     employees: {
       type: new GraphQLList(EmployeeType),
       args: { },
-      resolve(parentValue, args) {
+      resolve() {
         return employees;
       }
     }
   }
 });
 
-module.exports = new GraphQLSchema({ query: RootQuery });
+const RootMutation = new GraphQLObjectType({
+  name: 'RootMutationType',
+  fields: {
+    addEmployee: {
+      type: EmployeeType,
+      args: {
+        data:{
+          name: 'data',
+          type: new GraphQLNonNull(EmployeeInputTypes)
+        }
+      },
+      resolve(root, params, options) {
+        const data = { ...params.data };
+        data.id = employees.length + 1
+        employees.push(data);
+        return data;
+      }
+    },
+    updateEmployee: {
+      type: EmployeeType,
+      args: {
+        id: { type: new GraphQLNonNull(GraphQLInt) },
+        data: {
+          name: 'data',
+          type: new GraphQLNonNull(EmployeeInputTypes)
+        }
+      },
+      resolve (root, params, options) {
+        const data = { ...params.data }
+        employees.map(employee => {
+          if (params.id === employee.id) {
+            employee.name = data.name;
+            employee.email = data.email;
+          }
+        });
+        data.id = params.id;
+        return data;
+      }
+    } 
+  }
+});
+
+module.exports = new GraphQLSchema({ 
+  query: RootQuery,
+  mutation: RootMutation,
+});
